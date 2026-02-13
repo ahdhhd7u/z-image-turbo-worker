@@ -10,8 +10,8 @@ from huggingface_hub import hf_hub_download
 
 WORKER_VERSION = "v15"
 
-# Use network volume for persistent storage
-MODELS_BASE = os.getenv("MODELS_BASE", "/workspace/models")
+# Use network volume for persistent storage (RunPod serverless default mount)
+MODELS_BASE = os.getenv("MODELS_BASE", "/runpod-volume/models")
 COMFYUI_PATH = "/root/ComfyUI"
 
 # Track if models are downloaded
