@@ -8,7 +8,7 @@ import random
 from pathlib import Path
 from huggingface_hub import hf_hub_download
 
-WORKER_VERSION = "v12"
+WORKER_VERSION = "v13"
 
 # Track if models are downloaded
 models_downloaded = False
@@ -178,7 +178,7 @@ def handler(event):
                     "seed": seed,
                     "steps": steps,
                     "cfg": cfg,
-                    "sampler_name": "res_2s",
+                    "sampler_name": "euler",
                     "scheduler": "beta",
                     "denoise": 1.0,
                 },
