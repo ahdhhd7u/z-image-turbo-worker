@@ -26,19 +26,19 @@ def download_models():
         {
             "repo_id": "Comfy-Org/z_image_turbo",
             "filename": "split_files/diffusion_models/z_image_turbo_bf16.safetensors",
-            "target_dir": "/root/comfy/ComfyUI/models/diffusion_models",
+            "target_dir": "/root/ComfyUI/models/diffusion_models",
             "target_name": "z_image_turbo_bf16.safetensors",
         },
         {
             "repo_id": "Comfy-Org/z_image_turbo",
             "filename": "split_files/text_encoders/qwen_3_4b.safetensors",
-            "target_dir": "/root/comfy/ComfyUI/models/clip",
+            "target_dir": "/root/ComfyUI/models/clip",
             "target_name": "qwen_3_4b.safetensors",
         },
         {
             "repo_id": "Comfy-Org/z_image_turbo",
             "filename": "split_files/vae/ae.safetensors",
-            "target_dir": "/root/comfy/ComfyUI/models/vae",
+            "target_dir": "/root/ComfyUI/models/vae",
             "target_name": "ae.safetensors",
         }
     ]
@@ -71,14 +71,13 @@ def start_comfyui():
     if comfy_process is None:
         print("🌐 Starting ComfyUI server...")
         comfy_process = subprocess.Popen(
-            "comfy launch -- --listen 0.0.0.0 --port 8188",
-            shell=True,
+            ["python", "/root/ComfyUI/main.py", "--listen", "0.0.0.0", "--port", "8188"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
         
         # Wait for server to be ready
-        for _ in range(30):
+        for _ in range(60):
             try:
                 resp = requests.get("http://127.0.0.1:8188/system_stats", timeout=1)
                 if resp.status_code == 200:

@@ -2,23 +2,32 @@ FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
 WORKDIR /root
 
-# Install ComfyUI dependencies
-RUN apt-get update && apt-get install -y git wget curl && rm -rf /var/lib/apt/lists/*
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
+# Install Python packages
 RUN pip install --no-cache-dir \
     runpod \
-    comfy-cli==1.5.3 \
-    huggingface_hub[hf_transfer]==0.34.4 \
-    requests
+    huggingface_hub \
+    requests \
+    pillow \
+    torch \
+    torchvision \
+    torchaudio
 
-# Install ComfyUI
-RUN comfy --skip-prompt install --fast-deps --nvidia
+# Clone ComfyUI
+RUN git clone https://github.com/comfyanonymous/ComfyUI.git /root/ComfyUI
 
-# Enable fast downloads
-ENV HF_HUB_ENABLE_HF_TRANSFER=1
-ENV PYTHONUNBUFFERED=1
+# Install ComfyUI requirements
+RUN cd /root/ComfyUI && pip install --no-cache-dir -r requirements.txt
 
 # Copy handler
 COPY handler.py /root/handler.py
+
+ENV PYTHONUNBUFFERED=1
 
 CMD ["python", "-u", "/root/handler.py"]
