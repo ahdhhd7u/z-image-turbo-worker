@@ -8,6 +8,8 @@ import random
 from pathlib import Path
 from huggingface_hub import hf_hub_download
 
+WORKER_VERSION = "v11"
+
 # Track if models are downloaded
 models_downloaded = False
 
@@ -32,7 +34,7 @@ def download_models():
         {
             "repo_id": "Comfy-Org/z_image_turbo",
             "filename": "split_files/text_encoders/qwen_3_4b.safetensors",
-            "target_dir": "/root/ComfyUI/models/clip",
+            "target_dir": "/root/ComfyUI/models/text_encoders",
             "target_name": "qwen_3_4b.safetensors",
         },
         {
@@ -93,6 +95,7 @@ def start_comfyui():
 def handler(event):
     """RunPod handler for Z-Image-Turbo via ComfyUI API"""
     try:
+        print(f"🔖 Worker version: {WORKER_VERSION}")
         # Download models first
         download_models()
         
@@ -120,68 +123,84 @@ def handler(event):
             seed = random.randint(0, 2**32 - 1)
         seed = int(seed)
         
-        # Z-Image-Turbo workflow
+        # Z-Image-Turbo workflow (matches official ComfyUI template)
         workflow = {
-            "1": {
+            "28": {
                 "class_type": "UNETLoader",
                 "inputs": {
                     "unet_name": "z_image_turbo_bf16.safetensors",
-                    "weight_dtype": "default"
-                }
+                    "weight_dtype": "default",
+                },
             },
-            "2": {
-                "class_type": "DualCLIPLoader",
+            "11": {
+                "class_type": "ModelSamplingAuraFlow",
                 "inputs": {
-                    "clip_name1": "qwen_3_4b.safetensors",
-                    "clip_name2": "qwen_3_4b.safetensors",
-                    "type": "z_image"
-                }
+                    "model": ["28", 0],
+                    "shift": 3,
+                },
+            },
+            "30": {
+                "class_type": "CLIPLoader",
+                "inputs": {
+                    "clip_name": "qwen_3_4b.safetensors",
+                    "type": "lumina2",
+                    "device": "default",
+                },
+            },
+            "27": {
+                "class_type": "CLIPTextEncode",
+                "inputs": {
+                    "clip": ["30", 0],
+                    "text": prompt,
+                },
+            },
+            "33": {
+                "class_type": "ConditioningZeroOut",
+                "inputs": {
+                    "conditioning": ["27", 0],
+                },
+            },
+            "13": {
+                "class_type": "EmptySD3LatentImage",
+                "inputs": {
+                    "width": width,
+                    "height": height,
+                    "batch_size": 1,
+                },
             },
             "3": {
-                "class_type": "VAELoader",
-                "inputs": {"vae_name": "ae.safetensors"}
-            },
-            "4": {
-                "class_type": "CLIPTextEncode",
-                "inputs": {
-                    "text": prompt,
-                    "clip": ["2", 0]
-                }
-            },
-            "5": {
-                "class_type": "CLIPTextEncode",
-                "inputs": {
-                    "text": negative_prompt,
-                    "clip": ["2", 0]
-                }
-            },
-            "6": {
-                "class_type": "EmptyLatentImage",
-                "inputs": {"width": width, "height": height, "batch_size": 1}
-            },
-            "7": {
                 "class_type": "KSampler",
                 "inputs": {
-                    "model": ["1", 0],
-                    "positive": ["4", 0],
-                    "negative": ["5", 0],
-                    "latent_image": ["6", 0],
+                    "model": ["11", 0],
+                    "positive": ["27", 0],
+                    "negative": ["33", 0],
+                    "latent_image": ["13", 0],
                     "seed": seed,
                     "steps": steps,
                     "cfg": cfg,
-                    "sampler_name": "euler",
+                    "sampler_name": "res_multistep",
                     "scheduler": "simple",
-                    "denoise": 1.0
-                }
+                    "denoise": 1.0,
+                },
+            },
+            "29": {
+                "class_type": "VAELoader",
+                "inputs": {"vae_name": "ae.safetensors"},
             },
             "8": {
                 "class_type": "VAEDecode",
-                "inputs": {"samples": ["7", 0], "vae": ["3", 0]}
+                "inputs": {
+                    "samples": ["3", 0],
+                    "vae": ["29", 0],
+                },
             },
             "9": {
                 "class_type": "SaveImage",
-                "inputs": {"filename_prefix": "z_image", "images": ["8", 0]}
-            }
+                "inputs": {
+                    "filename_prefix": "z_image",
+                    "images": ["8", 0],
+                },
+            },
         }
         
         # Queue prompt
