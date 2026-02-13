@@ -1,27 +1,24 @@
 FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
-WORKDIR /app
+WORKDIR /root
 
-# Install compatible versions
+# Install ComfyUI dependencies
+RUN apt-get update && apt-get install -y git wget curl && rm -rf /var/lib/apt/lists/*
+
 RUN pip install --no-cache-dir \
     runpod \
-    diffusers==0.30.3 \
-    transformers==4.44.2 \
-    accelerate==0.33.0 \
-    safetensors \
-    pillow \
-    huggingface_hub \
-    sentencepiece
+    comfy-cli==1.5.3 \
+    huggingface_hub[hf_transfer]==0.34.4 \
+    requests
 
-# Pre-download the model during build (optional but speeds up cold start)
-# Uncomment if you want to bake the model into the image (~12GB larger image)
-# RUN python -c "from diffusers import ZImagePipeline; ZImagePipeline.from_pretrained('Tongyi-MAI/Z-Image-Turbo')"
+# Install ComfyUI
+RUN comfy --skip-prompt install --fast-deps --nvidia
+
+# Enable fast downloads
+ENV HF_HUB_ENABLE_HF_TRANSFER=1
+ENV PYTHONUNBUFFERED=1
 
 # Copy handler
-COPY handler.py /app/handler.py
+COPY handler.py /root/handler.py
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV HF_HOME=/app/hf_cache
-
-CMD ["python", "-u", "handler.py"]
+CMD ["python", "-u", "/root/handler.py"]

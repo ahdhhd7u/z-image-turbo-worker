@@ -1,6 +1,6 @@
-# Z-Image-Turbo RunPod Worker
+# SDXL-Turbo RunPod Worker
 
-Custom RunPod serverless handler for Z-Image-Turbo image generation.
+Custom RunPod serverless handler for SDXL-Turbo image generation.
 
 ## Build & Deploy
 
