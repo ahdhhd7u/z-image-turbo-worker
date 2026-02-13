@@ -14,15 +14,14 @@ def load_model():
     if pipe is not None:
         return pipe
 
-    from diffusers import ZImagePipeline
+    from diffusers import FluxPipeline
 
     print("Loading Z-Image-Turbo model...")
-    pipe = ZImagePipeline.from_pretrained(
+    pipe = FluxPipeline.from_pretrained(
         "Tongyi-MAI/Z-Image-Turbo",
         torch_dtype=torch.bfloat16,
-        low_cpu_mem_usage=False,
     )
-    pipe.to("cuda")
+    pipe.enable_model_cpu_offload()
     print("Model loaded successfully!")
     return pipe
 

@@ -12,8 +12,8 @@ RUN pip install --no-cache-dir \
     pillow \
     huggingface_hub
 
-# Install diffusers from source (needed for Z-Image-Turbo support)
-RUN pip install --no-cache-dir git+https://github.com/huggingface/diffusers
+# Install stable diffusers version
+RUN pip install --no-cache-dir diffusers==0.31.0
 
 # Pre-download the model during build (optional but speeds up cold start)
 # Uncomment if you want to bake the model into the image (~12GB larger image)
