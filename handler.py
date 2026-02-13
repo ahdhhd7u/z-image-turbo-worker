@@ -67,17 +67,18 @@ comfy_process = None
 def start_comfyui():
     """Start ComfyUI server in background"""
     global comfy_process
-    
+
+    if comfy_process is not None and comfy_process.poll() is not None:
+        comfy_process = None
+
     if comfy_process is None:
         print("🌐 Starting ComfyUI server...")
         comfy_process = subprocess.Popen(
-            ["python", "/root/ComfyUI/main.py", "--listen", "0.0.0.0", "--port", "8188"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            ["python", "-u", "/root/ComfyUI/main.py", "--listen", "0.0.0.0", "--port", "8188"],
         )
-        
+
         # Wait for server to be ready
-        for _ in range(60):
+        for _ in range(120):
             try:
                 resp = requests.get("http://127.0.0.1:8188/system_stats", timeout=1)
                 if resp.status_code == 200:
@@ -85,7 +86,7 @@ def start_comfyui():
                     return
             except:
                 time.sleep(1)
-        
+
         print("⚠️ ComfyUI server may not be fully ready")
 
 
@@ -100,58 +101,71 @@ def handler(event):
         
         input_data = event.get("input", {})
         prompt = input_data.get("prompt", "a beautiful sunset")
-        width = input_data.get("width", 1024)
-        height = input_data.get("height", 1024)
-        steps = input_data.get("steps", 10)
-        cfg = input_data.get("cfg", 1.1)
-        seed = input_data.get("seed", random.randint(0, 2**32 - 1))
+        negative_prompt = input_data.get(
+            "negative_prompt",
+            "worst quality, low quality, blurry, ugly, bad anatomy, watermark, text, signature",
+        )
+        width = int(input_data.get("width") or 1024)
+        height = int(input_data.get("height") or 1024)
+        steps = input_data.get("steps")
+        if steps is None:
+            steps = input_data.get("num_inference_steps")
+        steps = int(steps or 4)
+        cfg = input_data.get("cfg")
+        if cfg is None:
+            cfg = input_data.get("guidance_scale")
+        cfg = float(cfg or 1.0)
+        seed = input_data.get("seed")
+        if seed is None:
+            seed = random.randint(0, 2**32 - 1)
+        seed = int(seed)
         
         # Z-Image-Turbo workflow
         workflow = {
-            "16": {
+            "1": {
                 "class_type": "UNETLoader",
                 "inputs": {
                     "unet_name": "z_image_turbo_bf16.safetensors",
                     "weight_dtype": "default"
                 }
             },
-            "17": {
+            "2": {
+                "class_type": "DualCLIPLoader",
+                "inputs": {
+                    "clip_name1": "qwen_3_4b.safetensors",
+                    "clip_name2": "qwen_3_4b.safetensors",
+                    "type": "z_image"
+                }
+            },
+            "3": {
                 "class_type": "VAELoader",
                 "inputs": {"vae_name": "ae.safetensors"}
             },
-            "18": {
-                "class_type": "CLIPLoader",
-                "inputs": {
-                    "clip_name": "qwen_3_4b.safetensors",
-                    "type": "lumina2",
-                    "device": "default"
-                }
-            },
-            "6": {
+            "4": {
                 "class_type": "CLIPTextEncode",
                 "inputs": {
                     "text": prompt,
-                    "clip": ["18", 0]
+                    "clip": ["2", 0]
                 }
             },
-            "7": {
+            "5": {
                 "class_type": "CLIPTextEncode",
                 "inputs": {
-                    "text": "worst quality, low quality, blurry, ugly, bad anatomy, watermark, text, signature",
-                    "clip": ["18", 0]
+                    "text": negative_prompt,
+                    "clip": ["2", 0]
                 }
             },
-            "13": {
-                "class_type": "EmptySD3LatentImage",
+            "6": {
+                "class_type": "EmptyLatentImage",
                 "inputs": {"width": width, "height": height, "batch_size": 1}
             },
-            "3": {
+            "7": {
                 "class_type": "KSampler",
                 "inputs": {
-                    "model": ["16", 0],
-                    "positive": ["6", 0],
-                    "negative": ["7", 0],
-                    "latent_image": ["13", 0],
+                    "model": ["1", 0],
+                    "positive": ["4", 0],
+                    "negative": ["5", 0],
+                    "latent_image": ["6", 0],
                     "seed": seed,
                     "steps": steps,
                     "cfg": cfg,
@@ -162,7 +176,7 @@ def handler(event):
             },
             "8": {
                 "class_type": "VAEDecode",
-                "inputs": {"samples": ["3", 0], "vae": ["17", 0]}
+                "inputs": {"samples": ["7", 0], "vae": ["3", 0]}
             },
             "9": {
                 "class_type": "SaveImage",
@@ -177,8 +191,13 @@ def handler(event):
             json={"prompt": workflow},
             timeout=180
         )
-        resp.raise_for_status()
-        result = resp.json()
+        if resp.status_code != 200:
+            raise RuntimeError(f"ComfyUI /prompt failed ({resp.status_code}): {resp.text}")
+
+        try:
+            result = resp.json()
+        except Exception:
+            raise RuntimeError(f"ComfyUI /prompt returned non-JSON: {resp.text}")
         prompt_id = result.get("prompt_id")
         
         if not prompt_id:

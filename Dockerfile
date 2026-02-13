@@ -17,14 +17,16 @@ RUN pip install --no-cache-dir \
     pillow \
     torch \
     torchvision \
-    torchaudio \
-    git+https://github.com/huggingface/transformers.git
+    torchaudio 
 
 # Clone ComfyUI
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git /root/ComfyUI
 
 # Install ComfyUI requirements
 RUN cd /root/ComfyUI && pip install --no-cache-dir -r requirements.txt
+
+# Re-install latest transformers (ComfyUI requirements may downgrade it)
+RUN pip install --no-cache-dir --upgrade --force-reinstall git+https://github.com/huggingface/transformers.git
 
 # Copy handler
 COPY handler.py /root/handler.py
