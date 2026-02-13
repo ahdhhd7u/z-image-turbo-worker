@@ -8,7 +8,7 @@ import random
 from pathlib import Path
 from huggingface_hub import hf_hub_download, login
 
-WORKER_VERSION = "v3"
+WORKER_VERSION = "v4"
 
 # HuggingFace authentication for gated models
 HF_TOKEN = os.getenv("HF_TOKEN", "")
@@ -47,7 +47,7 @@ def download_models():
             "target_name": "clip_l.safetensors",
         },
         {
-            "repo_id": "black-forest-labs/FLUX.1-schnell",
+            "repo_id": "black-forest-labs/FLUX.2-dev",
             "filename": "ae.safetensors",
             "target_dir": "/root/ComfyUI/models/vae",
             "target_name": "ae.safetensors",
