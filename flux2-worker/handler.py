@@ -8,7 +8,7 @@ import random
 from pathlib import Path
 from huggingface_hub import hf_hub_download, login
 
-WORKER_VERSION = "v2"
+WORKER_VERSION = "v3"
 
 # HuggingFace authentication for gated models
 HF_TOKEN = os.getenv("HF_TOKEN", "")
@@ -65,15 +65,19 @@ def download_models():
         target_path.parent.mkdir(parents=True, exist_ok=True)
         
         try:
+            # Download directly to target location to save disk space
             downloaded_path = hf_hub_download(
                 repo_id=model["repo_id"],
                 filename=model["filename"],
-                cache_dir="/root/.cache/huggingface"
+                local_dir=model["target_dir"],
+                local_dir_use_symlinks=False
             )
             
-            # Create symlink or copy
-            import shutil
-            shutil.copy(downloaded_path, target_path)
+            # Rename if needed
+            if downloaded_path != str(target_path):
+                import shutil
+                shutil.move(downloaded_path, target_path)
+            
             print(f"   ✅ {model['target_name']} ready")
             
         except Exception as e:
