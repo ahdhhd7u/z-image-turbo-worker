@@ -8,7 +8,7 @@ import random
 from pathlib import Path
 from huggingface_hub import hf_hub_download
 
-WORKER_VERSION = "v13"
+WORKER_VERSION = "v14"
 
 # Track if models are downloaded
 models_downloaded = False
@@ -136,7 +136,7 @@ def handler(event):
                 "class_type": "ModelSamplingAuraFlow",
                 "inputs": {
                     "model": ["28", 0],
-                    "shift": 7,
+                    "shift": 3,
                 },
             },
             "30": {
@@ -178,8 +178,8 @@ def handler(event):
                     "seed": seed,
                     "steps": steps,
                     "cfg": cfg,
-                    "sampler_name": "euler",
-                    "scheduler": "beta",
+                    "sampler_name": "res_multistep",
+                    "scheduler": "simple",
                     "denoise": 1.0,
                 },
             },
