@@ -24,4 +24,6 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/z-image-turbo:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/z-image-turbo:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/z-image-turbo:v2
