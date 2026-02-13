@@ -8,7 +8,7 @@ import random
 from pathlib import Path
 from huggingface_hub import hf_hub_download, login
 
-WORKER_VERSION = "v4"
+WORKER_VERSION = "v5"
 
 # HuggingFace authentication for gated models
 HF_TOKEN = os.getenv("HF_TOKEN", "")
@@ -149,12 +149,19 @@ def handler(event):
             seed = random.randint(0, 2**32 - 1)
         seed = int(seed)
         
-        # FLUX.2-dev workflow
+        # FLUX.2-dev workflow (simplified, no negative prompt)
         workflow = {
             "6": {
                 "class_type": "CLIPTextEncode",
                 "inputs": {
                     "text": prompt,
+                    "clip": ["11", 0]
+                }
+            },
+            "7": {
+                "class_type": "CLIPTextEncode",
+                "inputs": {
+                    "text": "",
                     "clip": ["11", 0]
                 }
             },
@@ -204,7 +211,7 @@ def handler(event):
                     "denoise": 1.0,
                     "model": ["12", 0],
                     "positive": ["6", 0],
-                    "negative": ["6", 0],
+                    "negative": ["7", 0],
                     "latent_image": ["27", 0]
                 }
             },

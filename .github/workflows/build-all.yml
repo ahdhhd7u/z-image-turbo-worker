@@ -46,7 +46,7 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/flux2-dev:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/flux2-dev:v4
+            ${{ secrets.DOCKERHUB_USERNAME }}/flux2-dev:v5
 
   build-qwen:
     runs-on: ubuntu-latest
