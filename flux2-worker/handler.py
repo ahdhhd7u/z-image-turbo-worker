@@ -6,9 +6,14 @@ import json
 import requests
 import random
 from pathlib import Path
-from huggingface_hub import hf_hub_download
+from huggingface_hub import hf_hub_download, login
 
-WORKER_VERSION = "v1"
+WORKER_VERSION = "v2"
+
+# HuggingFace authentication for gated models
+HF_TOKEN = os.getenv("HF_TOKEN", "")
+if HF_TOKEN:
+    login(token=HF_TOKEN)
 
 # Track if models are downloaded
 models_downloaded = False
