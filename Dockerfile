@@ -17,7 +17,8 @@ RUN pip install --no-cache-dir \
     pillow \
     torch \
     torchvision \
-    torchaudio
+    torchaudio \
+    git+https://github.com/huggingface/transformers.git
 
 # Clone ComfyUI
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git /root/ComfyUI
