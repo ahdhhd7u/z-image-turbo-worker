@@ -25,7 +25,7 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/z-image-turbo:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/z-image-turbo:v14
+            ${{ secrets.DOCKERHUB_USERNAME }}/z-image-turbo:v15
 
   build-flux2:
     runs-on: ubuntu-latest

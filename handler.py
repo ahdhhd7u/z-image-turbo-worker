@@ -8,7 +8,11 @@ import random
 from pathlib import Path
 from huggingface_hub import hf_hub_download
 
-WORKER_VERSION = "v14"
+WORKER_VERSION = "v15"
+
+# Use network volume for persistent storage
+MODELS_BASE = os.getenv("MODELS_BASE", "/workspace/models")
+COMFYUI_PATH = "/root/ComfyUI"
 
 # Track if models are downloaded
 models_downloaded = False
@@ -28,36 +32,42 @@ def download_models():
         {
             "repo_id": "Comfy-Org/z_image_turbo",
             "filename": "split_files/diffusion_models/z_image_turbo_bf16.safetensors",
-            "target_dir": "/root/ComfyUI/models/diffusion_models",
+            "target_dir": f"{MODELS_BASE}/diffusion_models",
             "target_name": "z_image_turbo_bf16.safetensors",
         },
         {
             "repo_id": "Comfy-Org/z_image_turbo",
             "filename": "split_files/text_encoders/qwen_3_4b.safetensors",
-            "target_dir": "/root/ComfyUI/models/text_encoders",
+            "target_dir": f"{MODELS_BASE}/text_encoders",
             "target_name": "qwen_3_4b.safetensors",
         },
         {
             "repo_id": "Comfy-Org/z_image_turbo",
             "filename": "split_files/vae/ae.safetensors",
-            "target_dir": "/root/ComfyUI/models/vae",
+            "target_dir": f"{MODELS_BASE}/vae",
             "target_name": "ae.safetensors",
         }
     ]
     
     for model in models:
         print(f"📥 Downloading {model['target_name']}...")
-        cached_path = hf_hub_download(
+        target_path = Path(model["target_dir"]) / model["target_name"]
+        
+        # Skip if already exists in network volume
+        if target_path.exists():
+            print(f"   ✅ {model['target_name']} already exists (cached)")
+            continue
+        
+        # Download to network volume
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        downloaded_path = hf_hub_download(
             repo_id=model["repo_id"],
             filename=model["filename"],
-            cache_dir="/cache",
+            local_dir=model["target_dir"],
+            local_dir_use_symlinks=False,
             token=hf_token
         )
-        
-        Path(model["target_dir"]).mkdir(parents=True, exist_ok=True)
-        target_path = f"{model['target_dir']}/{model['target_name']}"
-        subprocess.run(f"ln -sf {cached_path} {target_path}", shell=True, check=True)
-        print(f"   ✅ {model['target_name']} ready")
+        print(f"   ✅ {model['target_name']} downloaded")
     
     models_downloaded = True
     print("🎉 All models downloaded!")
@@ -75,8 +85,22 @@ def start_comfyui():
 
     if comfy_process is None:
         print("🌐 Starting ComfyUI server...")
+        # Create symlinks from network volume to ComfyUI models directory
+        for model_type in ["diffusion_models", "text_encoders", "vae"]:
+            comfy_model_dir = f"{COMFYUI_PATH}/models/{model_type}"
+            network_model_dir = f"{MODELS_BASE}/{model_type}"
+            
+            Path(comfy_model_dir).mkdir(parents=True, exist_ok=True)
+            
+            # Symlink each model file
+            if Path(network_model_dir).exists():
+                for model_file in Path(network_model_dir).glob("*.safetensors"):
+                    link_path = Path(comfy_model_dir) / model_file.name
+                    if not link_path.exists():
+                        link_path.symlink_to(model_file)
+        
         comfy_process = subprocess.Popen(
-            ["python", "-u", "/root/ComfyUI/main.py", "--listen", "0.0.0.0", "--port", "8188"],
+            ["python", "-u", f"{COMFYUI_PATH}/main.py", "--listen", "0.0.0.0", "--port", "8188"],
         )
 
         # Wait for server to be ready
