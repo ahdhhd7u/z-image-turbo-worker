@@ -18,28 +18,34 @@ def download_models():
     if models_downloaded:
         return
     
-    print("📦 Downloading Z-Image-Turbo models...")
+    print("📦 Downloading FLUX.1-schnell models...")
     
     hf_token = os.getenv("HF_TOKEN")
     
     models = [
         {
-            "repo_id": "Comfy-Org/z_image_turbo",
-            "filename": "split_files/diffusion_models/z_image_turbo_bf16.safetensors",
-            "target_dir": "/root/ComfyUI/models/diffusion_models",
-            "target_name": "z_image_turbo_bf16.safetensors",
+            "repo_id": "black-forest-labs/FLUX.1-schnell",
+            "filename": "flux1-schnell.safetensors",
+            "target_dir": "/root/ComfyUI/models/unet",
+            "target_name": "flux1-schnell.safetensors",
         },
         {
-            "repo_id": "Comfy-Org/z_image_turbo",
-            "filename": "split_files/text_encoders/qwen_3_4b.safetensors",
+            "repo_id": "comfyanonymous/flux_text_encoders",
+            "filename": "t5xxl_fp16.safetensors",
             "target_dir": "/root/ComfyUI/models/clip",
-            "target_name": "qwen_3_4b.safetensors",
+            "target_name": "t5xxl_fp16.safetensors",
         },
         {
-            "repo_id": "Comfy-Org/z_image_turbo",
-            "filename": "split_files/vae/ae.safetensors",
+            "repo_id": "comfyanonymous/flux_text_encoders",
+            "filename": "clip_l.safetensors",
+            "target_dir": "/root/ComfyUI/models/clip",
+            "target_name": "clip_l.safetensors",
+        },
+        {
+            "repo_id": "black-forest-labs/FLUX.1-schnell",
+            "filename": "ae.safetensors",
             "target_dir": "/root/ComfyUI/models/vae",
-            "target_name": "ae.safetensors",
+            "target_name": "ae.sft",
         }
     ]
     
@@ -106,67 +112,79 @@ def handler(event):
         cfg = input_data.get("cfg", 1.1)
         seed = input_data.get("seed", random.randint(0, 2**32 - 1))
         
-        # ComfyUI workflow (matches your Modal script)
+        # Use FLUX.1-schnell workflow (proven and stable)
         workflow = {
-            "16": {
-                "class_type": "UNETLoader",
-                "inputs": {
-                    "unet_name": "z_image_turbo_bf16.safetensors",
-                    "weight_dtype": "default"
-                }
-            },
-            "17": {
-                "class_type": "VAELoader",
-                "inputs": {"vae_name": "ae.safetensors"}
-            },
-            "18": {
-                "class_type": "CLIPLoader",
-                "inputs": {
-                    "clip_name": "qwen_3_4b.safetensors",
-                    "type": "lumina2",
-                    "device": "default"
-                }
-            },
             "6": {
                 "class_type": "CLIPTextEncode",
                 "inputs": {
                     "text": prompt,
-                    "clip": ["18", 0]
+                    "clip": ["11", 0]
+                }
+            },
+            "8": {
+                "class_type": "VAEDecode",
+                "inputs": {
+                    "samples": ["13", 0],
+                    "vae": ["10", 0]
+                }
+            },
+            "9": {
+                "class_type": "SaveImage",
+                "inputs": {
+                    "filename_prefix": "flux",
+                    "images": ["8", 0]
+                }
+            },
+            "10": {
+                "class_type": "VAELoader",
+                "inputs": {
+                    "vae_name": "ae.sft"
+                }
+            },
+            "11": {
+                "class_type": "DualCLIPLoader",
+                "inputs": {
+                    "clip_name1": "t5xxl_fp16.safetensors",
+                    "clip_name2": "clip_l.safetensors",
+                    "type": "flux"
+                }
+            },
+            "12": {
+                "class_type": "UNETLoader",
+                "inputs": {
+                    "unet_name": "flux1-schnell.safetensors",
+                    "weight_dtype": "default"
+                }
+            },
+            "13": {
+                "class_type": "KSampler",
+                "inputs": {
+                    "seed": seed,
+                    "steps": 4,
+                    "cfg": 1.0,
+                    "sampler_name": "euler",
+                    "scheduler": "simple",
+                    "denoise": 1.0,
+                    "model": ["12", 0],
+                    "positive": ["6", 0],
+                    "negative": ["7", 0],
+                    "latent_image": ["27", 0]
                 }
             },
             "7": {
                 "class_type": "CLIPTextEncode",
                 "inputs": {
-                    "text": "worst quality, low quality, blurry, ugly, bad anatomy, watermark, text, signature",
-                    "clip": ["18", 0]
+                    "text": "",
+                    "clip": ["11", 0]
                 }
             },
-            "13": {
-                "class_type": "EmptySD3LatentImage",
-                "inputs": {"width": width, "height": height, "batch_size": 1}
-            },
-            "3": {
-                "class_type": "KSampler",
+            "27": {
+                "class_type": "EmptyLatentImage",
                 "inputs": {
-                    "model": ["16", 0],
-                    "positive": ["6", 0],
-                    "negative": ["7", 0],
-                    "latent_image": ["13", 0],
-                    "seed": seed,
-                    "steps": steps,
-                    "cfg": cfg,
-                    "sampler_name": "euler",
-                    "scheduler": "simple",
-                    "denoise": 1.0
+                    "width": width,
+                    "height": height,
+                    "batch_size": 1
                 }
-            },
-            "8": {
-                "class_type": "VAEDecode",
-                "inputs": {"samples": ["3", 0], "vae": ["17", 0]}
-            },
-            "9": {
-                "class_type": "SaveImage",
-                "inputs": {"filename_prefix": "z_image", "images": ["8", 0]}
             }
         }
         
