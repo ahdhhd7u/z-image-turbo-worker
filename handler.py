@@ -8,9 +8,16 @@ import random
 from pathlib import Path
 from huggingface_hub import hf_hub_download
 
-# Download Z-Image-Turbo models on cold start
+# Track if models are downloaded
+models_downloaded = False
+
 def download_models():
     """Download Z-Image-Turbo models from HuggingFace"""
+    global models_downloaded
+    
+    if models_downloaded:
+        return
+    
     print("📦 Downloading Z-Image-Turbo models...")
     
     hf_token = os.getenv("HF_TOKEN")
@@ -50,6 +57,7 @@ def download_models():
         subprocess.run(f"ln -sf {cached_path} {target_path}", shell=True, check=True)
         print(f"   ✅ {model['target_name']} ready")
     
+    models_downloaded = True
     print("🎉 All models downloaded!")
 
 
@@ -85,6 +93,9 @@ def start_comfyui():
 def handler(event):
     """RunPod handler for Z-Image-Turbo via ComfyUI API"""
     try:
+        # Download models first
+        download_models()
+        
         # Ensure ComfyUI is running
         start_comfyui()
         
@@ -212,9 +223,6 @@ def handler(event):
             "error": str(e),
         }
 
-
-# Download models on cold start
-download_models()
 
 # Start the serverless worker
 runpod.serverless.start({"handler": handler})
