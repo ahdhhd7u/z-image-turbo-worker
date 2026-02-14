@@ -8,10 +8,10 @@ import random
 from pathlib import Path
 from huggingface_hub import hf_hub_download
 
-WORKER_VERSION = "v16"
+WORKER_VERSION = "v17"
 
-# Use network volume for persistent storage (RunPod serverless default mount)
-MODELS_BASE = os.getenv("MODELS_BASE", "/runpod-volume/models")
+# Use ephemeral storage (models download each worker start)
+MODELS_BASE = "/root/ComfyUI/models"
 COMFYUI_PATH = "/root/ComfyUI"
 
 # Track if models are downloaded
@@ -53,23 +53,23 @@ def download_models():
         print(f"📥 Downloading {model['target_name']}...")
         target_path = Path(model["target_dir"]) / model["target_name"]
         
-        # Skip if already exists in network volume
+        # Skip if already exists
         if target_path.exists():
-            print(f"   ✅ {model['target_name']} already exists (cached)")
+            print(f"   ✅ {model['target_name']} already exists")
             continue
         
-        # Download to cache first, then move to network volume
+        # Download and create symlink
         target_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             downloaded_path = hf_hub_download(
                 repo_id=model["repo_id"],
                 filename=model["filename"],
-                cache_dir="/tmp/hf_cache",
+                cache_dir="/root/.cache/huggingface",
                 token=hf_token
             )
-            # Copy from cache to network volume
-            import shutil
-            shutil.copy2(downloaded_path, target_path)
+            # Create symlink to avoid duplicating storage
+            if not target_path.exists():
+                target_path.symlink_to(downloaded_path)
             print(f"   ✅ {model['target_name']} downloaded")
         except Exception as e:
             print(f"   ❌ Failed to download {model['target_name']}: {e}")
@@ -91,20 +91,6 @@ def start_comfyui():
 
     if comfy_process is None:
         print("🌐 Starting ComfyUI server...")
-        # Create symlinks from network volume to ComfyUI models directory
-        for model_type in ["diffusion_models", "text_encoders", "vae"]:
-            comfy_model_dir = f"{COMFYUI_PATH}/models/{model_type}"
-            network_model_dir = f"{MODELS_BASE}/{model_type}"
-            
-            Path(comfy_model_dir).mkdir(parents=True, exist_ok=True)
-            
-            # Symlink each model file
-            if Path(network_model_dir).exists():
-                for model_file in Path(network_model_dir).glob("*.safetensors"):
-                    link_path = Path(comfy_model_dir) / model_file.name
-                    if not link_path.exists():
-                        link_path.symlink_to(model_file)
-        
         comfy_process = subprocess.Popen(
             ["python", "-u", f"{COMFYUI_PATH}/main.py", "--listen", "0.0.0.0", "--port", "8188"],
         )
