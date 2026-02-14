@@ -8,7 +8,7 @@ import random
 from pathlib import Path
 from huggingface_hub import hf_hub_download
 
-WORKER_VERSION = "v15"
+WORKER_VERSION = "v16"
 
 # Use network volume for persistent storage (RunPod serverless default mount)
 MODELS_BASE = os.getenv("MODELS_BASE", "/runpod-volume/models")
@@ -58,16 +58,22 @@ def download_models():
             print(f"   ✅ {model['target_name']} already exists (cached)")
             continue
         
-        # Download to network volume
+        # Download to cache first, then move to network volume
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        downloaded_path = hf_hub_download(
-            repo_id=model["repo_id"],
-            filename=model["filename"],
-            local_dir=model["target_dir"],
-            local_dir_use_symlinks=False,
-            token=hf_token
-        )
-        print(f"   ✅ {model['target_name']} downloaded")
+        try:
+            downloaded_path = hf_hub_download(
+                repo_id=model["repo_id"],
+                filename=model["filename"],
+                cache_dir="/tmp/hf_cache",
+                token=hf_token
+            )
+            # Copy from cache to network volume
+            import shutil
+            shutil.copy2(downloaded_path, target_path)
+            print(f"   ✅ {model['target_name']} downloaded")
+        except Exception as e:
+            print(f"   ❌ Failed to download {model['target_name']}: {e}")
+            raise
     
     models_downloaded = True
     print("🎉 All models downloaded!")
